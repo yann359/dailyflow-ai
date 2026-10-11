@@ -2,7 +2,9 @@
 
 移动端优先的个人饮食、居家训练与习惯管理应用。找到自己的节奏，每一天轻一点，也好一点。
 
-> 本项目当前为本地优先 MVP。无需账号或 API 密钥即可使用。所有个人记录保存在当前浏览器，不会作为示例数据上传 GitHub。在线部署地址将在实际部署成功后添加到这里和仓库 About 中。
+[**在线体验 → 轻律 DailyFlow AI**](https://dailyflow-ai-zeta.vercel.app) · [GitHub 自动检查](https://github.com/yann359/dailyflow-ai/actions)
+
+> 本项目当前为本地优先 MVP，已通过 Vercel 发布。无需账号或 API 密钥即可使用。所有个人记录保存在当前浏览器，不会作为示例数据上传 GitHub。
 
 ## 已实现
 
@@ -60,7 +62,7 @@ Vercel启用AI前还必须配置 Upstash Redis REST，用于跨实例每日/月�
 
 ## 部署与后续
 
-首选 Vercel，Next.js页面与服务端接口均可运行。部署成功后将HTTPS链接写入README和GitHub About。GitHub仓库地址是代码页面，不能代替网站地址。见 [部署说明](docs/deployment.md)。
+已部署到 [Vercel 正式网站](https://dailyflow-ai-zeta.vercel.app)，Next.js页面与服务端接口均可运行。`main` 分支推送会触发自动部署。GitHub About 和本页均提供网站入口。见 [部署说明](docs/deployment.md)和[验收记录](docs/verification.md)。
 
 Supabase云同步为下一阶段：当前没有账号、云数据库或跨设备自动同步。已有数据模型和SyncAdapter边界，为RLS、删除同步、冲突处理、去重和重试预留接口；未完成两设备验收前不会标记为云同步可用。
 

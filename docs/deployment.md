@@ -2,6 +2,11 @@
 
 用户已确认创建`yann359/dailyflow-ai`公开仓库并通过Vercel发布。本项目使用独立仓库，不覆盖账号下其他项目。
 
+- 公开源码：[yann359/dailyflow-ai](https://github.com/yann359/dailyflow-ai)
+- 正式网站：[dailyflow-ai-zeta.vercel.app](https://dailyflow-ai-zeta.vercel.app)
+- Vercel项目：`yann359s-projects/dailyflow-ai`，GitHub App访问范围仅此仓库。
+- `main` 分支自动部署，Next.js框架预设、根目录 `./`、安装命令 `npm ci`、构建使用项目 `npm run build`。
+
 ## 首选：Vercel
 
 1. 获得确认后，将代码推到独立`dailyflow-ai`仓库的`main`。

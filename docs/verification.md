@@ -18,4 +18,6 @@ GitHub Actions 首次发布提交 `0431159` 的[自动检查](https://github.com
 
 AI 测试使用模拟官方 SDK 响应，覆盖校验、关闭状态、访问控制、限额与流式契约；未使用真实 API 密钥调用模型。手机测试为 Chromium 设备尺寸模拟，未在实体 iPhone Safari 或 Android 手机上验收。Supabase 云同步尚未启用，不能跨设备自动同步。
 
-在线部署状态和真实链接以 README 为准。生产发布后仍需在实际 HTTPS 域名检查页面、资源和无密钥状态。
+Vercel 生产部署 `7pLMUg9J2oxzzuhDZiMycj5SvLzT`（提交 `06958b3`）已 Ready，构建耗时 55 秒。正式地址为 [dailyflow-ai-zeta.vercel.app](https://dailyflow-ai-zeta.vercel.app)。
+
+2026-10-11 在线验收：不携带登录凭证访问首页、`/api/ai`、Manifest、服务工作线程和 192px 图标均返回 HTTP 200。浏览器页面正确打开，饮食 100g 鸡蛋记录成功并在刷新后保留。AI 状态明确 `enabled: false`、`provider: none`，保持无需密钥的本地版。
