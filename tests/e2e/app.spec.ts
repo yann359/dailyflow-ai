@@ -53,7 +53,7 @@ test('自然语言待确认、习惯打卡和本地周报', async ({ page }) => 
     page.getByRole('button', { name: '取消好好喝水', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: '聊聊今天' }).click();
-  await expect(page.getByText('本地规则 · AI未连接')).toBeVisible();
+  await expect(page.getByText('本地规则 · 未调用AI')).toBeVisible();
   await page.getByRole('button', { name: '生成7天复盘' }).click();
   await expect(
     page.getByText(/这是本地规则复盘，没有调用AI模型/),

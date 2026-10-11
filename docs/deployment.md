@@ -19,7 +19,7 @@ GitHub公开应用源码；个人记录保存在使用者当前浏览器，不�
 
 ## 可选AI配置
 
-在Vercel项目Settings → Environment Variables安全添加`.env.example`中服务端变量。AI开启需要独立OpenAI密钥、足够随机的访问口令和Upstash Redis REST配置，之后重新部署。不要在GitHub代码、Issue或聊天里粘贴真实API Key。
+在现有 Vercel 项目 Settings → Environment Variables 添加 `.env.example` 中的服务端变量。多模型版需要至少一家服务商密钥、独立使用者/管理员口令、会话签名密钥与 Upstash Redis REST；管理员还需维护模型能力和费用单价。环境变量更新后重新部署，随后模型切换无需部署。详见 [逐步配置指南](ai-model-center.md)。不要在 GitHub、Issue 或聊天里粘贴真实 API Key。
 
 ## 平台边界
 

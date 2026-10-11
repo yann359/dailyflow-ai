@@ -119,7 +119,7 @@ export default function DailyFlow() {
   const [date, setDate] = useState(() => localDate());
   const [modal, setModal] = useState<Modal>();
   const [toast, setToast] = useState('');
-  const [code, setCode] = useState('');
+  const code = '';
   const [connectionLost, setConnectionLost] = useState(false);
   const offline = browserOffline || connectionLost;
   const [installEvent, setInstallEvent] = useState<InstallEvent>();
@@ -128,6 +128,12 @@ export default function DailyFlow() {
     reason: 'AI服务未配置，本地功能正常可用',
     provider: 'none',
   });
+  useEffect(() => {
+    const update = (event: Event) =>
+      setAIStatus((event as CustomEvent<AIStatus>).detail);
+    window.addEventListener('dailyflow-ai-status', update);
+    return () => window.removeEventListener('dailyflow-ai-status', update);
+  }, []);
   const reduced = useReducedMotion();
   const [databaseReady, setDatabaseReady] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(
@@ -254,7 +260,11 @@ export default function DailyFlow() {
     );
   const today = localDate(undefined, data.settings[0].timezone);
   const aiReady =
-    aiStatus.enabled && data.settings[0].aiEnabled && !!code && !offline;
+    aiStatus.enabled &&
+    aiStatus.authenticated === true &&
+    data.settings[0].aiEnabled &&
+    data.settings[0].aiPreferences?.mode !== 'local' &&
+    !offline;
   const current = navigation.find((n) => n.id === tab)!;
   return (
     <div className="app-shell">
@@ -436,9 +446,6 @@ export default function DailyFlow() {
                   key={`${data.profiles[0].updatedAt}:${data.targets[0].updatedAt}:${data.plans[0].updatedAt}`}
                   data={data}
                   notify={notify}
-                  aiStatus={aiStatus}
-                  code={code}
-                  setCode={setCode}
                   onInstall={() => void install()}
                 />
               )}

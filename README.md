@@ -16,7 +16,7 @@
 - 身体：体重、腰围、每周均值、真实趋势图、训练次数趋势、仅本机照片对比。
 - 设置：可修改档案、营养目标、训练日、时区、主题与本机数据管理。
 - IndexedDB + Dexie：事务、结构校验、JSON备份、合并导入、迁移版本、删除标记与同步待办。
-- AI Provider：OpenAI官方SDK + Responses API、结构化输出、流式传输、图像输入、超时/一次重试、访问口令与调用配额。
+- AI 模型中心：OpenAI、DeepSeek、Kimi、方舟、Gemini、Claude 和管理员自定义兼容接口；任务选模、连接测试、流式教练、照片估算草稿、独立周报、签名授权与预算预留。六家均待配置真实凭证验证。
 - PWA：图标、Manifest、安全区域、首次在线打开后离线可用、添加主屏幕。
 
 ## 本地启动
@@ -54,9 +54,9 @@ npm run test:e2e
 
 第一版默认关闭外部AI。本地解析和周报会明确标记为规则计算；不会伪装成模型分析。
 
-复制 `.env.example` 为 `.env.local`，在本机安全设置服务端环境变量，**不要提交真实密钥**。设置 `OPENAI_API_KEY`、`OPENAI_MODEL`、`AI_ENABLED=true`、随机的 `AI_ACCESS_CODE`。在网站「我的」中启用AI并输入访问口令。口令只保存在当前页面内存，API密钥永不交给浏览器。
+复制 `.env.example` 为 `.env.local`，在本机安全设置服务端环境变量，**不要提交真实密钥**。至少配置一家服务商 Key、三个独立随机值 `AI_ACCESS_CODE` / `AI_ADMIN_ACCESS_CODE` / `AI_SESSION_SECRET`（各至少32字符），再设置 `AI_ENABLED=true`。在设置 → AI 模型中心登录访问身份；管理员维护模型能力、单价与默认模型。口令用于建立 HttpOnly 会话，API Key 永不交给浏览器。
 
-Vercel启用AI前还必须配置 Upstash Redis REST，用于跨实例每日/月度/每分钟调用限额；缺少该配置时接口自动保持关闭。API账户独立计费，请在OpenAI后台设置预算和告警；本项目限制请求数和输出量，不能保证准确的金额硬上限。
+Vercel 启用 AI 前还必须配置 Upstash Redis REST，用于模型配置持久化、跨实例限流、去重与每日/月度预算预留；缺少保护时接口保持关闭。费用是根据管理员单价的估算，实际账单以服务商为准。逐步配置、官方平台入口和使用说明见 [AI 模型中心指南](docs/ai-model-center.md)，升级检查见 [升级验收](docs/ai-upgrade-audit.md)。
 
 使用ChatGPT登录暂不可用：本项目没有获批合作方资格与OAuth客户端。官方方案、资格边界和资料见 [AI接入说明](docs/ai.md)。
 

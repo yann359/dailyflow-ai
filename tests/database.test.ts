@@ -12,7 +12,7 @@ import {
   clearLocalData,
 } from '@/lib/db';
 import { scaleNutrition } from '@/lib/nutrition';
-import { localWeeklyReport } from '@/lib/insights';
+import { localWeeklyReport, coachContext } from '@/lib/insights';
 let database: DailyFlowDB;
 beforeEach(async () => {
   database = new DailyFlowDB(`test-${crypto.randomUUID()}`);
@@ -22,6 +22,67 @@ afterEach(async () => {
   await database.delete();
 });
 describe('本地数据可靠性', () => {
+  it('升级 AI 偏好与新服务商对话兼容旧备份，原有记录保持不变', async () => {
+    const data = await loadData(database);
+    const food = data.foods[0];
+    await saveRecord(
+      'meals',
+      {
+        ...metadata('upgrade-meal'),
+        date: '2026-10-11',
+        meal: 'breakfast',
+        foodId: food.id,
+        foodName: food.name,
+        amount: 100,
+        unit: food.unit,
+        nutrition: food.nutrition,
+        source: food.source,
+      },
+      database,
+    );
+    await toggleHabit('habit-water', '2026-10-11', database);
+    const before = await exportBackup(database);
+    await saveRecord(
+      'settings',
+      {
+        ...data.settings[0],
+        aiPreferences: {
+          mode: 'auto',
+          cost: 'economy',
+          chat: null,
+          image: null,
+          weekly: null,
+          failover: false,
+          backups: [],
+        },
+      },
+      database,
+    );
+    await saveRecord(
+      'conversations',
+      {
+        ...metadata('new-ai'),
+        kind: 'coach',
+        provider: 'deepseek',
+        model: 'deepseek-flash',
+        question: '你好',
+        answer: '建议',
+      },
+      database,
+    );
+    await initializeDB(database);
+    await importBackup(before, database);
+    const after = await loadData(database);
+    expect(after.meals).toEqual(before.tables.meals);
+    expect(after.checkIns).toEqual(before.tables.checkIns);
+    expect(after.sessions).toEqual(before.tables.sessions);
+    expect(after.settings[0].aiPreferences?.mode).toBe('auto');
+    expect(after.conversations[0].provider).toBe('deepseek');
+    const context = JSON.stringify(coachContext(after, '2026-10-11'));
+    expect(context).not.toContain(data.profiles[0].name);
+    expect(context).not.toContain('ownerId');
+    expect(context).not.toContain('data:image');
+  });
   it('初始化幂等，真实记录为空', async () => {
     await initializeDB(database);
     const data = await loadData(database);

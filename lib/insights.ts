@@ -1,6 +1,7 @@
 import { recentDates, weekStart } from './dates';
 import { totalNutrition } from './nutrition';
 import type { Tables } from './schemas';
+import { exercises, trainingWeek } from './workouts';
 export function weeklySummary(data: Tables, date: string) {
   const dates = recentDates(date, 7);
   const meals = data.meals.filter((m) => dates.includes(m.date));
@@ -58,6 +59,12 @@ export function localWeeklyReport(data: Tables, date: string) {
 }
 export function coachContext(data: Tables, date: string) {
   const p = data.profiles[0];
+  const dates = recentDates(date, 14);
+  const sessions = data.sessions
+    .filter((s) => dates.includes(s.date))
+    .slice(-42);
+  const plan = data.plans[0];
+  const week = plan ? trainingWeek(plan, date) : 1;
   return {
     date,
     profile: p
@@ -70,5 +77,46 @@ export function coachContext(data: Tables, date: string) {
     week: weeklySummary(data, date),
     priorWeek: weeklySummary(data, recentDates(date, 8)[0]),
     weekStart: weekStart(date),
+    bodyTrend: data.measurements
+      .filter((m) => dates.includes(m.date))
+      .slice(-28)
+      .map((m) => ({ date: m.date, weight: m.weight, waist: m.waist })),
+    training: {
+      plan: plan
+        ? {
+            startDate: plan.startDate,
+            days: plan.days,
+            paused: plan.paused,
+            week,
+            plannedSets: week <= 2 ? 2 : 3,
+          }
+        : null,
+      exercises: Object.fromEntries(
+        Object.entries(exercises).map(([kind, list]) => [
+          kind,
+          list.map(({ id, name, reps, caution }) => ({
+            id,
+            name,
+            reps,
+            caution,
+          })),
+        ]),
+      ),
+      sessions: sessions.map((s) => ({
+        date: s.date,
+        week: s.week,
+        type: s.type,
+        completed: s.completed,
+        sets: data.sets
+          .filter((set) => set.sessionId === s.id)
+          .slice(0, 70)
+          .map((set) => ({
+            exercise: set.exerciseId,
+            reps: set.reps,
+            load: set.load,
+            completed: set.completed,
+          })),
+      })),
+    },
   };
 }

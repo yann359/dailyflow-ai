@@ -22,6 +22,8 @@ import { preparePhoto } from '@/lib/photos';
 import { requestAI } from '@/lib/ai/client';
 import { mealResultSchema, labelResultSchema } from '@/lib/ai/contracts';
 import { localDate } from '@/lib/dates';
+import { AIConsent, useAIRoute } from './ai-consent';
+import { PhotoMeal, type PhotoFood } from './photo-meal';
 type Props = {
   data: Tables;
   date: string;
@@ -45,7 +47,14 @@ export function MealDialog({
     entry?.meal || 'breakfast',
   );
   const [recordDate, setRecordDate] = useState(entry?.date || date);
-  const [mode, setMode] = useState<'manual' | 'text'>('manual');
+  const [mode, setMode] = useState<'manual' | 'text' | 'photo'>('manual');
+  const [photoDraft, setPhotoDraft] = useState<PhotoFood[]>([]);
+  const route = useAIRoute(
+    data.settings[0].aiPreferences,
+    'meal',
+    false,
+    aiReady,
+  );
   const [text, setText] = useState('');
   const [draft, setDraft] = useState<FoodDraft[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -73,6 +82,7 @@ export function MealDialog({
             {
               task: 'meal',
               text,
+              ...route.authorization(),
               foods: data.foods.map(
                 ({ id, name, unit, serving, servingName }) => ({
                   id,
@@ -120,7 +130,34 @@ export function MealDialog({
           void run(async () => {
             if (recordDate > localDate(undefined, data.settings[0].timezone))
               throw new Error('不能记录未来饮食');
-            if (mode === 'text') {
+            if (mode === 'photo') {
+              if (!photoDraft.length)
+                throw new Error('请先识别照片并核对估算草稿');
+              await db.transaction(
+                'rw',
+                db.records.foods,
+                db.records.meals,
+                db.outbox,
+                async () => {
+                  for (const item of photoDraft) {
+                    const food = await saveRecord('foods', {
+                      ...metadata(),
+                      name: item.name,
+                      unit: item.unit,
+                      serving: Math.min(item.amount, 2000),
+                      servingName: '份',
+                      nutrition: item.nutrition,
+                      source: `AI照片估算，用户已核对：${item.note}`.slice(
+                        0,
+                        200,
+                      ),
+                      favorite: false,
+                    });
+                    await saveRecord('meals', makeMeal(food, item.amount));
+                  }
+                },
+              );
+            } else if (mode === 'text') {
               if (!draft.length) throw new Error('请先解析并确认份量');
               await db.transaction(
                 'rw',
@@ -159,6 +196,14 @@ export function MealDialog({
             >
               <Sparkles size={15} />
               一句话记录
+            </button>
+            <button
+              type="button"
+              className={mode === 'photo' ? 'active' : ''}
+              onClick={() => setMode('photo')}
+            >
+              <Camera size={15} />
+              照片识别
             </button>
           </div>
         )}
@@ -241,6 +286,14 @@ export function MealDialog({
             )}
             <p className="notice">{food?.source}</p>
           </>
+        ) : mode === 'photo' ? (
+          <PhotoMeal
+            preferences={data.settings[0].aiPreferences}
+            ready={aiReady}
+            notify={notify}
+            draft={photoDraft}
+            onDraft={setPhotoDraft}
+          />
         ) : (
           <>
             <Field label="描述这一餐">
@@ -265,7 +318,7 @@ export function MealDialog({
               </Button>
               <Button
                 variant="secondary"
-                disabled={busy || !aiReady}
+                disabled={busy || !aiReady || !route.plan || !route.consent}
                 onClick={() => void parse(true)}
               >
                 <Sparkles size={16} />
@@ -273,8 +326,14 @@ export function MealDialog({
               </Button>
             </div>
             <p className="notice">
-              本地规则仅识别已知食物和明确数量。点击AI解析会向OpenAI发送这段描述和食物匹配字段；确认后才写入记录。
+              本地规则仅识别已知食物和明确数量。AI只生成草稿，确认后才写入记录。
             </p>
+            {aiReady && (
+              <AIConsent
+                route={route}
+                description="当前饮食描述及食物库名称、单位和份量字段，不含身体信息或历史记录"
+              />
+            )}
             {draft.map((item, index) => (
               <div className="draft-row" key={index}>
                 <span>
@@ -317,7 +376,11 @@ export function MealDialog({
           </>
         )}
         <Submit busy={busy}>
-          {mode === 'text' ? `确认并保存 ${draft.length} 项` : '保存这一餐'}
+          {mode === 'photo'
+            ? `我已核对估算，确认保存 ${photoDraft.length} 项`
+            : mode === 'text'
+              ? `确认并保存 ${draft.length} 项`
+              : '保存这一餐'}
         </Submit>
       </form>
     </Dialog>
@@ -343,6 +406,12 @@ export function FoodDialog({
   );
   const [favorite, setFavorite] = useState(food?.favorite || false);
   const [image, setImage] = useState<string>();
+  const route = useAIRoute(
+    data.settings[0].aiPreferences,
+    'label',
+    true,
+    aiReady,
+  );
   const { busy, run } = useAction(notify);
   return (
     <Dialog
@@ -378,23 +447,33 @@ export function FoodDialog({
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file)
-                  void run(async () => setImage(await preparePhoto(file)));
+                  void run(async () => {
+                    setImage(await preparePhoto(file));
+                    route.setConsent(false);
+                  });
               }}
             />
           </Field>
           {image && (
             <p className="notice">
-              照片已在本机准备。点击识别即授权将本张标签照片发送至OpenAI。
+              照片已在本机准备；授权并识别后才会上传，结果不会自动保存。
             </p>
           )}
           <Button
             variant="secondary"
-            disabled={!image || !aiReady || busy}
+            disabled={
+              !image || !aiReady || busy || !route.plan || !route.consent
+            }
             onClick={() =>
               void run(async () => {
                 const result = labelResultSchema.parse(
                   await requestAI(
-                    { task: 'label', text: '识别包装营养表', image },
+                    {
+                      task: 'label',
+                      text: '识别包装营养表',
+                      image,
+                      ...route.authorization(),
+                    },
                     code,
                   ),
                 );
@@ -408,12 +487,19 @@ export function FoodDialog({
                   ),
                 );
                 notify('已填入识别草稿，请核对每一项');
+                route.setConsent(false);
               })
             }
           >
             <Camera size={16} />
             识别标签并填写草稿
           </Button>
+          {aiReady && (
+            <AIConsent
+              route={route}
+              description="当前营养标签照片，不含历史记录或身体信息"
+            />
+          )}
         </div>
         <Field label="食物名称">
           <input

@@ -8,7 +8,6 @@ import {
   Leaf,
   Trash2,
   HardDrive,
-  Sparkles,
 } from 'lucide-react';
 import type { Tables, Profile, Settings } from '@/lib/schemas';
 import {
@@ -21,20 +20,16 @@ import {
 import { Button } from './ui/button';
 import { Field, Submit, useAction, type Notify } from './shared';
 import { Dialog } from './ui/dialog';
-export type AIStatus = { enabled: boolean; reason: string; provider: string };
+import { AIModelCenter } from './ai-model-center';
+import type { CenterStatus } from '@/lib/ai/catalog';
+export type AIStatus = CenterStatus;
 export function SettingsTab({
   data,
   notify,
-  aiStatus,
-  code,
-  setCode,
   onInstall,
 }: {
   data: Tables;
   notify: Notify;
-  aiStatus: AIStatus;
-  code: string;
-  setCode: (code: string) => void;
   onInstall: () => void;
 }) {
   const profile = data.profiles[0];
@@ -328,52 +323,8 @@ export function SettingsTab({
           </Button>
           <p className="notice">通知暂未实现推送；当前版本不会主动发送提醒。</p>
         </section>
-        <section className="card settings-card">
-          <h3>
-            <Sparkles size={18} />
-            AI 连接
-          </h3>
-          <div className="status-box">
-            <i className={aiStatus.enabled ? 'online-dot' : 'offline-dot'} />
-            <div>
-              <b>
-                {aiStatus.enabled ? 'OpenAI服务已配置' : '当前使用本地模式'}
-              </b>
-              <p>{aiStatus.reason}</p>
-            </div>
-          </div>
-          <label className="check-field">
-            <input
-              type="checkbox"
-              checked={settings.aiEnabled}
-              onChange={(e) => updateSettings({ aiEnabled: e.target.checked })}
-            />
-            允许使用AI功能
-          </label>
-          <Field label="AI访问口令（保存在当前页面内存中）">
-            <input
-              aria-label="AI访问口令"
-              type="password"
-              autoComplete="off"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="由网站部署者设置，不是API密钥"
-            />
-          </Field>
-          <p className="notice">
-            调用前会说明发送的数据。API密钥只保存在服务端。口令用于个人版访问，关闭页面后需重新输入。
-          </p>
-          <div className="status-box">
-            <ShieldCheck size={20} />
-            <div>
-              <b>使用 ChatGPT 登录 · 暂不可用</b>
-              <p>
-                本项目未获得官方合作方资格与OAuth客户端配置，不会复用客户端令牌。
-              </p>
-            </div>
-          </div>
-        </section>
       </div>
+      <AIModelCenter data={data} notify={notify} />
       <section className="card settings-card">
         <h3>
           <ShieldCheck size={18} />
@@ -485,7 +436,6 @@ export function SettingsTab({
             onClick={() =>
               void run(async () => {
                 await clearLocalData();
-                setCode('');
                 setClear(false);
                 setClearText('');
                 notify('本地数据已重置');

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { preferencesSchema, providerIds } from './ai/catalog';
 export const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -113,12 +114,14 @@ export const conversationSchema = z.object({
   kind: z.enum(['coach', 'weekly']),
   question: z.string().max(1000),
   answer: z.string().max(12000),
-  provider: z.enum(['local', 'openai']),
+  provider: z.enum(['local', ...providerIds]),
+  model: z.string().max(160).optional(),
 });
 export const settingsSchema = z.object({
   ...meta,
   theme: z.enum(['light', 'dark', 'system']),
   aiEnabled: z.boolean(),
+  aiPreferences: preferencesSchema.optional(),
   notifications: z.boolean(),
   hiddenModules: z.array(z.enum(['nutrition', 'workout', 'habits', 'week'])),
   timezone: z.string().refine((value) => {

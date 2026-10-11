@@ -1,7 +1,7 @@
 'use client';
 import { LoaderCircle, Sprout } from 'lucide-react';
 import { Button } from './ui/button';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 export type Notify = (message: string) => void;
 export function Empty({
   title,
@@ -59,16 +59,19 @@ export function Submit({
 }
 export function useAction(notify: Notify) {
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   return {
     busy,
     run: async (action: () => Promise<void>) => {
-      if (busy) return;
+      if (inFlight.current) return;
+      inFlight.current = true;
       setBusy(true);
       try {
         await action();
       } catch (error) {
         notify(error instanceof Error ? error.message : '操作失败，请重试');
       } finally {
+        inFlight.current = false;
         setBusy(false);
       }
     },

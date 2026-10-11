@@ -5,8 +5,14 @@ import type { Tables } from '@/lib/schemas';
 import { metadata, saveRecord, removeRecord } from '@/lib/db';
 import { localWeeklyReport, coachContext } from '@/lib/insights';
 import { totalNutrition } from '@/lib/nutrition';
-import { coachResultSchema, formatCoach } from '@/lib/ai/contracts';
-import { requestAI } from '@/lib/ai/client';
+import {
+  textResultSchema,
+  weeklyResultSchema,
+  formatWeekly,
+} from '@/lib/ai/contracts';
+import { requestAIWithMeta } from '@/lib/ai/client';
+import { selectionLabel, type ProviderId } from '@/lib/ai/catalog';
+import { AIConsent, useAIRoute } from './ai-consent';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { useAction, type Notify } from './shared';
@@ -16,7 +22,6 @@ export function CoachDialog({
   notify,
   onClose,
   aiReady,
-  code,
 }: {
   data: Tables;
   date: string;
@@ -26,29 +31,51 @@ export function CoachDialog({
   code: string;
 }) {
   const [question, setQuestion] = useState('');
-  const [consent, setConsent] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState('');
+  const chatRoute = useAIRoute(
+    data.settings[0].aiPreferences,
+    'coach',
+    false,
+    aiReady,
+  );
+  const weeklyRoute = useAIRoute(
+    data.settings[0].aiPreferences,
+    'weekly',
+    false,
+    aiReady,
+  );
   const { busy, run } = useAction(notify);
   const history = [...data.conversations]
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     .slice(-12);
   async function ask(kind: 'coach' | 'weekly', text: string) {
     await run(async () => {
-      if (aiReady && !consent) throw new Error('请先勾选授权发送最小范围记录');
       if (!text.trim()) throw new Error('请输入问题');
       let answer: string;
-      let provider: 'local' | 'openai' = 'local';
-      setProgress(0);
+      let provider: 'local' | ProviderId = 'local';
+      let model: string | undefined;
+      setProgress('');
       if (aiReady) {
-        const result = coachResultSchema.parse(
-          await requestAI(
-            { task: kind, text, context: coachContext(data, date) },
-            code,
-            (count) => setProgress(count),
-          ),
+        const route = kind === 'weekly' ? weeklyRoute : chatRoute;
+        const output = await requestAIWithMeta(
+          {
+            task: kind,
+            text,
+            context: coachContext(data, date),
+            ...route.authorization(),
+          },
+          kind === 'coach' ? setProgress : undefined,
         );
-        answer = formatCoach(result);
-        provider = 'openai';
+        answer =
+          kind === 'weekly'
+            ? formatWeekly(weeklyResultSchema.parse(output.result))
+            : textResultSchema.parse(output.result).answer;
+        provider = output.provider;
+        model = output.model;
+        if (output.fallbackErrors.length)
+          notify(
+            `已按授权切换备用模型：${output.provider}。主模型错误：${output.fallbackErrors[0]}`,
+          );
       } else if (kind === 'weekly') answer = localWeeklyReport(data, date);
       else {
         const total = totalNutrition(data.meals.filter((m) => m.date === date));
@@ -60,8 +87,11 @@ export function CoachDialog({
         question: text,
         answer,
         provider,
+        model,
       });
       setQuestion('');
+      chatRoute.setConsent(false);
+      weeklyRoute.setConsent(false);
     });
   }
   return (
@@ -75,7 +105,11 @@ export function CoachDialog({
           <Sparkles size={22} />
         </span>
         <div>
-          <b>{aiReady ? 'OpenAI · 已启用' : '本地规则 · AI未连接'}</b>
+          <b>
+            {aiReady
+              ? selectionLabel(chatRoute.plan?.selection)
+              : '本地规则 · 未调用AI'}
+          </b>
           <p>
             {aiReady
               ? '回复会区分事实、估算与建议'
@@ -99,8 +133,10 @@ export function CoachDialog({
             <div className="chat-question">{item.question}</div>
             <div className="chat-answer">
               <span>
-                {item.provider === 'openai' ? 'AI回复' : '本地规则提示'} ·{' '}
-                {item.createdAt.slice(0, 10)}
+                {item.provider !== 'local'
+                  ? `AI回复 · ${selectionLabel({ provider: item.provider, model: item.model || '历史模型' })}`
+                  : '本地规则提示'}{' '}
+                · {item.createdAt.slice(0, 10)}
               </span>
               <p>{item.answer}</p>
               <button
@@ -121,10 +157,15 @@ export function CoachDialog({
         {busy && (
           <div className="row muted">
             <LoaderCircle size={16} className="spin" />
-            正在生成，已接收 {progress} 字符…
+            正在生成，已接收 {progress.length} 字符…
           </div>
         )}
       </div>
+      {busy && progress && (
+        <div className="ai-stream" aria-live="polite">
+          {progress}
+        </div>
+      )}
       <div className="row wrap prompt-chips">
         {['今天蛋白质够了吗？', '下次训练怎么调整？'].map((q) => (
           <button disabled={busy} key={q} onClick={() => setQuestion(q)}>
@@ -139,14 +180,19 @@ export function CoachDialog({
         </button>
       </div>
       {aiReady && (
-        <label className="check-field consent">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
+        <>
+          <AIConsent
+            route={chatRoute}
+            description="本次问题、年龄、身高、目标及近两周必要的饮食/习惯/身体统计与训练组数，不含姓名、照片或完整对话"
           />
-          授权本次向OpenAI发送年龄、身高、目标和近两周统计，不含姓名、照片及完整对话。
-        </label>
+          <details>
+            <summary>每周总结的数据授权</summary>
+            <AIConsent
+              route={weeklyRoute}
+              description="最近7天记录与前周对比、年龄、身高和目标，不含姓名、照片或完整对话"
+            />
+          </details>
+        </>
       )}
       <form
         className="chat-input"
